@@ -152,6 +152,38 @@ export interface Database {
           created_at?: string
         }
       }
+      routine_exercise_sets: {
+        Row: {
+          id: string
+          user_id: string
+          routine_item_id: string
+          set_number: number
+          target_reps: number | null
+          target_weight: number | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          routine_item_id: string
+          set_number: number
+          target_reps?: number | null
+          target_weight?: number | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          routine_item_id?: string
+          set_number?: number
+          target_reps?: number | null
+          target_weight?: number | null
+          notes?: string | null
+          created_at?: string
+        }
+      }
       workout_sessions: {
         Row: {
           id: string
@@ -199,6 +231,8 @@ export interface Database {
           set_number: number
           reps: number | null
           weight: number | null
+          target_reps: number | null
+          target_weight: number | null
           notes: string | null
           created_at: string
         }
@@ -210,6 +244,8 @@ export interface Database {
           set_number?: number
           reps?: number | null
           weight?: number | null
+          target_reps?: number | null
+          target_weight?: number | null
           notes?: string | null
           created_at?: string
         }
@@ -221,6 +257,8 @@ export interface Database {
           set_number?: number
           reps?: number | null
           weight?: number | null
+          target_reps?: number | null
+          target_weight?: number | null
           notes?: string | null
           created_at?: string
         }
@@ -266,11 +304,13 @@ export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Routine = Database['public']['Tables']['routines']['Row']
 export type Exercise = Database['public']['Tables']['exercises']['Row']
 export type RoutineItem = Database['public']['Tables']['routine_items']['Row']
+export type RoutineExerciseSet = Database['public']['Tables']['routine_exercise_sets']['Row']
 export type WorkoutSession = Database['public']['Tables']['workout_sessions']['Row']
 export type WorkoutSet = Database['public']['Tables']['workout_sets']['Row']
 
 export type RoutineItemWithExercise = RoutineItem & {
   exercise: Exercise | null
+  routine_exercise_sets?: RoutineExerciseSet[]
 }
 
 export type WorkoutSetWithExercise = WorkoutSet & {

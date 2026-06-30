@@ -17,13 +17,33 @@ interface Props {
 
 function ExerciseItem({
   re,
+  onEdit,
   onDelete,
 }: {
   re: RoutineItemWithExercise
+  onEdit: (item: RoutineItemWithExercise) => void
   onDelete: (id: string) => void
 }) {
   const { t } = useLang()
   if (!re.exercise) return null
+
+  const setsList = re.routine_exercise_sets ?? []
+  const sortedSets = [...setsList].sort((a, b) => a.set_number - b.set_number)
+
+  let targetMeta = ''
+  if (sortedSets.length > 0) {
+    const setsText = sortedSets.map((s) => {
+      if (s.target_reps !== null && s.target_weight !== null) {
+        return `${s.target_reps}r @ ${s.target_weight}kg`
+      }
+      if (s.target_reps !== null) return `${s.target_reps}r`
+      if (s.target_weight !== null) return `${s.target_weight}kg`
+      return '—'
+    }).join(' · ')
+    targetMeta = `${sortedSets.length} series: ${setsText}`
+  } else {
+    targetMeta = 'Sin series configuradas'
+  }
 
   return (
     <div className={`exercise-item ${re.is_warmup ? 'exercise-item-warmup' : ''}`}>
@@ -32,13 +52,8 @@ function ExerciseItem({
       </div>
       <div className="exercise-item-info">
         <div className="exercise-item-name">{re.exercise.name}</div>
-        <div className="exercise-item-meta">
-          {[
-            re.is_warmup && t('warmup'),
-            re.target_sets && `${re.target_sets} ${t('sets')}`,
-            re.target_reps && `${re.target_reps} ${t('reps')}`,
-            re.target_weight && `${re.target_weight} ${t('kg')}`,
-          ].filter(Boolean).join(' · ')}
+        <div className="exercise-item-meta" style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+          {targetMeta}
         </div>
         {re.notes && (
           <div className="exercise-item-meta" style={{ marginTop: 2, fontStyle: 'italic' }}>
@@ -46,7 +61,15 @@ function ExerciseItem({
           </div>
         )}
       </div>
-      <div className="exercise-item-actions">
+      <div className="exercise-item-actions" style={{ display: 'flex', gap: 4 }}>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={() => onEdit(re)}
+          style={{ color: 'var(--accent)', minHeight: 'auto', padding: '6px 8px', fontSize: '0.8rem' }}
+          id={`edit-item-${re.id}`}
+        >
+          ✏️
+        </button>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => onDelete(re.id)}
@@ -126,6 +149,7 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
   const [items, setItems] = useState<RoutineItemWithExercise[]>(initialItems)
   const [showAddExerciseModal, setShowAddExerciseModal] = useState(false)
   const [showAddRestModal, setShowAddRestModal] = useState(false)
+  const [editingItem, setEditingItem] = useState<RoutineItemWithExercise | undefined>(undefined)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   async function handleDeleteItem(itemId: string) {
@@ -150,9 +174,23 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
   }
 
   function handleItemAdded(newItem: RoutineItemWithExercise) {
-    setItems((prev) => [...prev, newItem].sort((a, b) => a.order_index - b.order_index))
+    setItems((prev) => {
+      // Si estamos editando, reemplazamos el item en la lista. Si no, lo agregamos.
+      const exists = prev.some(item => item.id === newItem.id)
+      if (exists) {
+        return prev.map(item => item.id === newItem.id ? newItem : item).sort((a, b) => a.order_index - b.order_index)
+      } else {
+        return [...prev, newItem].sort((a, b) => a.order_index - b.order_index)
+      }
+    })
     setShowAddExerciseModal(false)
     setShowAddRestModal(false)
+    setEditingItem(undefined)
+  }
+
+  function handleEditClick(item: RoutineItemWithExercise) {
+    setEditingItem(item)
+    setShowAddExerciseModal(true)
   }
 
   return (
@@ -194,7 +232,12 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
                 )
               } else {
                 return (
-                  <ExerciseItem key={item.id} re={item} onDelete={handleDeleteItem} />
+                  <ExerciseItem
+                    key={item.id}
+                    re={item}
+                    onEdit={handleEditClick}
+                    onDelete={handleDeleteItem}
+                  />
                 )
               }
             })}
@@ -206,7 +249,10 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
       <div className="form-row" style={{ marginBottom: 12 }}>
         <button
           className="btn btn-secondary"
-          onClick={() => setShowAddExerciseModal(true)}
+          onClick={() => {
+            setEditingItem(undefined)
+            setShowAddExerciseModal(true)
+          }}
           id="add-exercise-btn"
         >
           {t('addExercise')}
@@ -238,12 +284,16 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
         {t('delete')} {t('routine')}
       </button>
 
-      {/* Modal agregar ejercicio */}
+      {/* Modal agregar/editar ejercicio */}
       {showAddExerciseModal && (
         <AddExerciseModal
           routineId={routine.id}
           currentCount={items.length}
-          onClose={() => setShowAddExerciseModal(false)}
+          editingItem={editingItem}
+          onClose={() => {
+            setShowAddExerciseModal(false)
+            setEditingItem(undefined)
+          }}
           onAdded={handleItemAdded}
         />
       )}

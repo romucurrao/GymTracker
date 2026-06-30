@@ -14,6 +14,8 @@ interface SetRow {
   set_number: number
   reps: string
   weight: string
+  target_reps: string
+  target_weight: string
   notes: string
   saved: boolean
 }
@@ -42,6 +44,12 @@ interface Props {
         rest_max_seconds: number | null
         rest_label: string | null
         notes: string | null
+        routine_exercise_sets?: Array<{
+          id: string
+          set_number: number
+          target_reps: number | null
+          target_weight: number | null
+        }>
       }>
     } | null
   }
@@ -51,6 +59,8 @@ interface Props {
     set_number: number
     reps: number | null
     weight: number | null
+    target_reps: number | null
+    target_weight: number | null
     notes: string | null
     exercise: { name: string }
   }>
@@ -61,7 +71,7 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
   const { t } = useLang()
   const router = useRouter()
 
-  // ── Inicializar sets desde existentes ──────────────────────────────────
+  // ── Inicializar sets desde existentes o generar basándose en la rutina ──
   const initSets: SetRow[] = existingSets.length > 0
     ? existingSets.map((s) => ({
         id: s.id,
@@ -70,10 +80,57 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
         set_number: s.set_number,
         reps: String(s.reps ?? ''),
         weight: String(s.weight ?? ''),
+        target_reps: s.target_reps ? String(s.target_reps) : '',
+        target_weight: s.target_weight ? String(s.target_weight) : '',
         notes: s.notes ?? '',
         saved: true,
       }))
-    : []
+    : (() => {
+        const initialSets: SetRow[] = []
+        if (session.routine && session.routine.routine_items) {
+          const exercises = session.routine.routine_items.filter(
+            (item) => item.item_type === 'exercise' && item.exercise
+          )
+          exercises.forEach((item) => {
+            const ex = item.exercise!
+            const targetSetsList = item.routine_exercise_sets ?? []
+            const sortedTargets = [...targetSetsList].sort((a, b) => a.set_number - b.set_number)
+
+            if (sortedTargets.length > 0) {
+              sortedTargets.forEach((ts) => {
+                initialSets.push({
+                  exercise_id: ex.id,
+                  exercise_name: ex.name,
+                  set_number: ts.set_number,
+                  reps: '',
+                  weight: '',
+                  target_reps: ts.target_reps ? String(ts.target_reps) : '',
+                  target_weight: ts.target_weight ? String(ts.target_weight) : '',
+                  notes: '',
+                  saved: false,
+                })
+              })
+            } else {
+              // Fallback si no tiene series individuales configuradas pero tiene target_sets globales
+              const count = item.target_sets ?? 1
+              for (let i = 1; i <= count; i++) {
+                initialSets.push({
+                  exercise_id: ex.id,
+                  exercise_name: ex.name,
+                  set_number: i,
+                  reps: '',
+                  weight: '',
+                  target_reps: item.target_reps ? String(item.target_reps) : '',
+                  target_weight: item.target_weight ? String(item.target_weight) : '',
+                  notes: '',
+                  saved: false,
+                })
+              }
+            }
+          })
+        }
+        return initialSets
+      })()
 
   const [sets, setSets] = useState<SetRow[]>(initSets)
   const [selectedExercise, setSelectedExercise] = useState('')
@@ -233,6 +290,8 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
       set_number: exerciseSets.length + 1,
       reps: '',
       weight: '',
+      target_reps: '',
+      target_weight: '',
       notes: '',
       saved: false,
     }])
@@ -253,10 +312,15 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
     if (!user) return
 
     for (const s of sets) {
+      const targetRepsVal = s.target_reps ? parseInt(s.target_reps) : null
+      const targetWeightVal = s.target_weight ? parseFloat(s.target_weight) : null
+
       if (s.id) {
         await supabase.from('workout_sets').update({
           reps: s.reps ? parseInt(s.reps) : null,
           weight: s.weight ? parseFloat(s.weight) : null,
+          target_reps: targetRepsVal,
+          target_weight: targetWeightVal,
           notes: s.notes || null,
         }).eq('id', s.id)
       } else {
@@ -267,6 +331,8 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
           set_number: s.set_number,
           reps: s.reps ? parseInt(s.reps) : null,
           weight: s.weight ? parseFloat(s.weight) : null,
+          target_reps: targetRepsVal,
+          target_weight: targetWeightVal,
           notes: s.notes || null,
         }).select().single()
         if (data) {
@@ -455,12 +521,20 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
                     setSelectedExercise(ex.id)
                     setTimeout(() => {
                       const exerciseSets = sets.filter((s) => s.exercise_id === ex.id)
+                      const targetSetsList = item.routine_exercise_sets ?? []
+                      
+                      // Buscar si hay un objetivo correspondiente al set_number
+                      const nextSetNum = exerciseSets.length + 1
+                      const targetForSet = targetSetsList.find(ts => ts.set_number === nextSetNum)
+
                       setSets((prev) => [...prev, {
                         exercise_id: ex.id,
                         exercise_name: ex.name,
-                        set_number: exerciseSets.length + 1,
-                        reps: String(item.target_reps ?? ''),
-                        weight: String(item.target_weight ?? ''),
+                        set_number: nextSetNum,
+                        reps: '',
+                        weight: '',
+                        target_reps: targetForSet?.target_reps ? String(targetForSet.target_reps) : '',
+                        target_weight: targetForSet?.target_weight ? String(targetForSet.target_weight) : '',
                         notes: '',
                         saved: false,
                       }])
@@ -561,31 +635,50 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
                       }}
                     >
                       <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent)' }}>{s.set_number}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={s.reps}
-                        onChange={(e) => updateSet(globalIdx, 'reps', e.target.value)}
-                        placeholder="—"
-                        style={{
-                          background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                          borderRadius: 6, padding: '6px 8px', color: 'var(--text-primary)',
-                          fontSize: '0.9rem', width: '100%',
-                        }}
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.5"
-                        value={s.weight}
-                        onChange={(e) => updateSet(globalIdx, 'weight', e.target.value)}
-                        placeholder="—"
-                        style={{
-                          background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
-                          borderRadius: 6, padding: '6px 8px', color: 'var(--text-primary)',
-                          fontSize: '0.9rem', width: '100%',
-                        }}
-                      />
+                      
+                      {/* Entrada Reps + Objetivo */}
+                      <div>
+                        <input
+                          type="number"
+                          min="0"
+                          value={s.reps}
+                          onChange={(e) => updateSet(globalIdx, 'reps', e.target.value)}
+                          placeholder={s.target_reps ? String(s.target_reps) : '—'}
+                          style={{
+                            background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                            borderRadius: 6, padding: '6px 8px', color: 'var(--text-primary)',
+                            fontSize: '0.9rem', width: '100%',
+                          }}
+                        />
+                        {s.target_reps && (
+                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 2 }}>
+                            Obj: {s.target_reps}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Entrada Kg + Objetivo */}
+                      <div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={s.weight}
+                          onChange={(e) => updateSet(globalIdx, 'weight', e.target.value)}
+                          placeholder={s.target_weight ? String(s.target_weight) : '—'}
+                          style={{
+                            background: 'var(--bg-input)', border: '1px solid var(--border-subtle)',
+                            borderRadius: 6, padding: '6px 8px', color: 'var(--text-primary)',
+                            fontSize: '0.9rem', width: '100%',
+                          }}
+                        />
+                        {s.target_weight && (
+                          <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: 2 }}>
+                            Obj: {s.target_weight}kg
+                          </div>
+                        )}
+                      </div>
+
                       <input
                         type="text"
                         value={s.notes}

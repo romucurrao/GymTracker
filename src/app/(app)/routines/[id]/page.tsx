@@ -21,7 +21,7 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
 
   const { data: routineItems } = await supabase
     .from('routine_items')
-    .select('*, exercise:exercises(*)')
+    .select('*, exercise:exercises(*), routine_exercise_sets(*)')
     .eq('routine_id', id)
     .order('order_index', { ascending: true })
 

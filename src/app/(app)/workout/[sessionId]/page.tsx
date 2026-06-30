@@ -11,7 +11,7 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
 
   const { data: session } = await supabase
     .from('workout_sessions')
-    .select('*, routine:routines(name, routine_items(*, exercise:exercises(*)))')
+    .select('*, routine:routines(name, routine_items(*, exercise:exercises(*), routine_exercise_sets(*)))')
     .eq('id', sessionId)
     .single()
 
