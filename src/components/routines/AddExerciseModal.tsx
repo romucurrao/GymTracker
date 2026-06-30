@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/i18n/lang-context'
-import type { Exercise, RoutineExerciseWithExercise } from '@/lib/types/database'
+import type { Exercise, RoutineItemWithExercise } from '@/lib/types/database'
 
 interface Props {
   routineId: string
   currentCount: number
   onClose: () => void
-  onAdded: (re: RoutineExerciseWithExercise) => void
+  onAdded: (re: RoutineItemWithExercise) => void
 }
 
 export default function AddExerciseModal({ routineId, currentCount, onClose, onAdded }: Props) {
@@ -48,12 +48,13 @@ export default function AddExerciseModal({ routineId, currentCount, onClose, onA
     if (!user) return
 
     const { data, error } = await supabase
-      .from('routine_exercises')
+      .from('routine_items')
       .insert({
         user_id: user.id,
         routine_id: routineId,
         exercise_id: selected.id,
-        exercise_order: currentCount,
+        order_index: currentCount,
+        item_type: 'exercise',
         is_warmup: isWarmup,
         target_sets: targetSets ? parseInt(targetSets) : null,
         target_reps: targetReps ? parseInt(targetReps) : null,
@@ -64,7 +65,7 @@ export default function AddExerciseModal({ routineId, currentCount, onClose, onA
       .single()
 
     if (!error && data) {
-      onAdded(data as RoutineExerciseWithExercise)
+      onAdded(data as RoutineItemWithExercise)
     }
     setLoading(false)
   }

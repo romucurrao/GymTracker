@@ -7,15 +7,20 @@ export default async function WorkoutSessionPage({ params }: { params: Promise<{
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) return redirect('/login')
 
   const { data: session } = await supabase
     .from('workout_sessions')
-    .select('*, routine:routines(name, routine_exercises(*, exercise:exercises(*)))')
+    .select('*, routine:routines(name, routine_items(*, exercise:exercises(*)))')
     .eq('id', sessionId)
     .single()
 
   if (!session) return notFound()
+
+  // Forzar que el orden sea ascendente según el order_index de los items si hay rutina
+  if (session.routine && (session.routine as any).routine_items) {
+    (session.routine as any).routine_items.sort((a: any, b: any) => a.order_index - b.order_index)
+  }
 
   const { data: existingSets } = await supabase
     .from('workout_sets')

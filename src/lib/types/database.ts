@@ -99,17 +99,21 @@ export interface Database {
           created_at?: string
         }
       }
-      routine_exercises: {
+      routine_items: {
         Row: {
           id: string
           user_id: string
           routine_id: string
-          exercise_id: string
-          exercise_order: number
+          exercise_id: string | null
+          order_index: number
+          item_type: 'exercise' | 'rest'
           is_warmup: boolean
           target_sets: number | null
           target_reps: number | null
           target_weight: number | null
+          rest_min_seconds: number | null
+          rest_max_seconds: number | null
+          rest_label: string | null
           notes: string | null
           created_at: string
         }
@@ -117,12 +121,16 @@ export interface Database {
           id?: string
           user_id: string
           routine_id: string
-          exercise_id: string
-          exercise_order?: number
+          exercise_id?: string | null
+          order_index?: number
+          item_type?: 'exercise' | 'rest'
           is_warmup?: boolean
           target_sets?: number | null
           target_reps?: number | null
           target_weight?: number | null
+          rest_min_seconds?: number | null
+          rest_max_seconds?: number | null
+          rest_label?: string | null
           notes?: string | null
           created_at?: string
         }
@@ -130,12 +138,16 @@ export interface Database {
           id?: string
           user_id?: string
           routine_id?: string
-          exercise_id?: string
-          exercise_order?: number
+          exercise_id?: string | null
+          order_index?: number
+          item_type?: 'exercise' | 'rest'
           is_warmup?: boolean
           target_sets?: number | null
           target_reps?: number | null
           target_weight?: number | null
+          rest_min_seconds?: number | null
+          rest_max_seconds?: number | null
+          rest_label?: string | null
           notes?: string | null
           created_at?: string
         }
@@ -147,6 +159,10 @@ export interface Database {
           routine_id: string | null
           session_date: string
           notes: string | null
+          started_at: string | null
+          finished_at: string | null
+          duration_seconds: number
+          status: 'active' | 'paused' | 'completed'
           created_at: string
         }
         Insert: {
@@ -155,6 +171,10 @@ export interface Database {
           routine_id?: string | null
           session_date?: string
           notes?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          duration_seconds?: number
+          status?: 'active' | 'paused' | 'completed'
           created_at?: string
         }
         Update: {
@@ -163,6 +183,10 @@ export interface Database {
           routine_id?: string | null
           session_date?: string
           notes?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          duration_seconds?: number
+          status?: 'active' | 'paused' | 'completed'
           created_at?: string
         }
       }
@@ -241,12 +265,12 @@ export const EQUIPMENT_OPTIONS = [
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Routine = Database['public']['Tables']['routines']['Row']
 export type Exercise = Database['public']['Tables']['exercises']['Row']
-export type RoutineExercise = Database['public']['Tables']['routine_exercises']['Row']
+export type RoutineItem = Database['public']['Tables']['routine_items']['Row']
 export type WorkoutSession = Database['public']['Tables']['workout_sessions']['Row']
 export type WorkoutSet = Database['public']['Tables']['workout_sets']['Row']
 
-export type RoutineExerciseWithExercise = RoutineExercise & {
-  exercise: Exercise
+export type RoutineItemWithExercise = RoutineItem & {
+  exercise: Exercise | null
 }
 
 export type WorkoutSetWithExercise = WorkoutSet & {

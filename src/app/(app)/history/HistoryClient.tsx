@@ -20,11 +20,22 @@ interface Session {
   notes: string | null
   routine: { name: string } | null
   workout_sets: WorkoutSet[]
+  duration_seconds: number
+  status: string
 }
 
 export default function HistoryClient({ sessions }: { sessions: Session[] }) {
   const { t } = useLang()
   const [expanded, setExpanded] = useState<string | null>(null)
+
+  function formatDuration(seconds: number) {
+    if (!seconds || seconds <= 0) return ''
+    const m = Math.floor(seconds / 60)
+    if (m < 60) return `${m}m`
+    const h = Math.floor(m / 60)
+    const remM = m % 60
+    return `${h}h ${remM}m`
+  }
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr + 'T12:00:00')
@@ -89,13 +100,13 @@ export default function HistoryClient({ sessions }: { sessions: Session[] }) {
                       </div>
                     )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, marginLeft: 12 }}>
                     <span className="tag tag-muted">{session.workout_sets.length} series</span>
-                    <span style={{
-                      color: 'var(--text-muted)', fontSize: '1rem',
-                      transform: isExpanded ? 'rotate(90deg)' : 'none',
-                      transition: 'transform 0.2s ease', display: 'inline-block',
-                    }}>›</span>
+                    {session.duration_seconds > 0 && (
+                      <span className="tag tag-accent" style={{ fontSize: '0.7rem' }}>
+                        ⏱️ {formatDuration(session.duration_seconds)}
+                      </span>
+                    )}
                   </div>
                 </div>
 

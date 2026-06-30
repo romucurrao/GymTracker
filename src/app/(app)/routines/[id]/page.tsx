@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import RoutineDetailClient from './RoutineDetailClient'
-import type { Routine } from '@/lib/types/database'
+import type { Routine, RoutineItemWithExercise } from '@/lib/types/database'
 
 export default async function RoutineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,16 +19,16 @@ export default async function RoutineDetailPage({ params }: { params: Promise<{ 
   const routine = data as Routine | null
   if (!routine) return notFound()
 
-  const { data: routineExercises } = await supabase
-    .from('routine_exercises')
+  const { data: routineItems } = await supabase
+    .from('routine_items')
     .select('*, exercise:exercises(*)')
     .eq('routine_id', id)
-    .order('exercise_order', { ascending: true })
+    .order('order_index', { ascending: true })
 
   return (
     <RoutineDetailClient
       routine={routine}
-      routineExercises={routineExercises ?? []}
+      initialItems={(routineItems as RoutineItemWithExercise[]) ?? []}
     />
   )
 }
