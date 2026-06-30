@@ -45,10 +45,32 @@ function ExerciseItem({
     targetMeta = 'Sin series configuradas'
   }
 
+  // Estilos y colores por tipo de ejercicio
+  const isCore = re.exercise.primary_muscle === 'Abdomen' || re.exercise.primary_muscle === 'Core' || re.exercise.primary_muscle === 'Oblicuos'
+  const isMobility = re.exercise.type === 'movilidad'
+  const isCardio = re.exercise.type === 'cardio'
+
+  let itemClass = 'exercise-item'
+  let emoji = '💪'
+
+  if (isCore) {
+    itemClass += ' exercise-item-core'
+    emoji = '🎯'
+  } else if (re.is_warmup || re.exercise.type === 'calentamiento') {
+    itemClass += ' exercise-item-warmup'
+    emoji = '🔥'
+  } else if (isMobility) {
+    itemClass += ' exercise-item-mobility'
+    emoji = '🧘'
+  } else if (isCardio) {
+    itemClass += ' exercise-item-cardio'
+    emoji = '🏃'
+  }
+
   return (
-    <div className={`exercise-item ${re.is_warmup ? 'exercise-item-warmup' : ''}`}>
+    <div className={itemClass} style={{ marginBottom: 0 }}>
       <div style={{ fontSize: '1.2rem', flexShrink: 0 }}>
-        {re.is_warmup ? '🔥' : '💪'}
+        {emoji}
       </div>
       <div className="exercise-item-info">
         <div className="exercise-item-name">{re.exercise.name}</div>
@@ -113,12 +135,13 @@ function RestItem({
 
   return (
     <div className="exercise-item" style={{
-      borderColor: 'var(--warmup-border)',
-      background: 'var(--warmup-dim)',
+      borderColor: 'var(--border)',
+      background: 'rgba(148, 163, 184, 0.04)',
+      marginBottom: 0
     }}>
       <div style={{ fontSize: '1.2rem', flexShrink: 0 }}>⏱️</div>
       <div className="exercise-item-info">
-        <div className="exercise-item-name" style={{ color: 'var(--warmup)', fontWeight: 700 }}>
+        <div className="exercise-item-name" style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>
           {label}
         </div>
         <div className="exercise-item-meta" style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
@@ -175,7 +198,6 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
 
   function handleItemAdded(newItem: RoutineItemWithExercise) {
     setItems((prev) => {
-      // Si estamos editando, reemplazamos el item en la lista. Si no, lo agregamos.
       const exists = prev.some(item => item.id === newItem.id)
       if (exists) {
         return prev.map(item => item.id === newItem.id ? newItem : item).sort((a, b) => a.order_index - b.order_index)
@@ -193,6 +215,36 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
     setShowAddExerciseModal(true)
   }
 
+  // Lógica de reordenamiento ▲ y ▼
+  async function handleMoveItem(index: number, direction: 'up' | 'down') {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= items.length) return
+
+    const newItems = [...items]
+    const itemA = newItems[index]
+    const itemB = newItems[targetIndex]
+
+    const tempOrder = itemA.order_index
+    itemA.order_index = itemB.order_index
+    itemB.order_index = tempOrder
+
+    newItems[index] = itemB
+    newItems[targetIndex] = itemA
+
+    setItems(newItems)
+
+    try {
+      const supabase = createClient()
+      // Guardar el nuevo orden en paralelo en Supabase
+      await Promise.all([
+        supabase.from('routine_items').update({ order_index: itemA.order_index }).eq('id', itemA.id),
+        supabase.from('routine_items').update({ order_index: itemB.order_index }).eq('id', itemB.id)
+      ])
+    } catch (err) {
+      console.error('Error saving new items order:', err)
+    }
+  }
+
   return (
     <div className="page-container">
       <TopBar showBack />
@@ -201,7 +253,11 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
         <div>
           <h1 className="page-title" style={{ fontSize: '1.5rem' }}>{routine.name}</h1>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-            {routine.day && <span className="tag tag-muted">{routine.day}</span>}
+            {routine.days && routine.days.length > 0 && (
+              <span className="tag tag-muted">
+                {routine.days.map((d) => d.slice(0, 3)).join(', ')}
+              </span>
+            )}
             {routine.main_muscle_group && <span className="tag tag-accent">{routine.main_muscle_group}</span>}
           </div>
         </div>
@@ -216,7 +272,7 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
         </p>
       )}
 
-      {/* Lista ordenada de elementos (Ejercicios y Descansos) */}
+      {/* Lista ordenada de elementos (Ejercicios y Descansos) con controles ▲ y ▼ */}
       <div style={{ marginBottom: 20 }}>
         <div className="section-title">Estructura de la rutina</div>
         {items.length === 0 ? (
@@ -225,21 +281,59 @@ export default function RoutineDetailClient({ routine, initialItems }: Props) {
           </div>
         ) : (
           <div>
-            {items.map((item) => {
-              if (item.item_type === 'rest') {
-                return (
-                  <RestItem key={item.id} item={item} onDelete={handleDeleteItem} />
-                )
-              } else {
-                return (
-                  <ExerciseItem
-                    key={item.id}
-                    re={item}
-                    onEdit={handleEditClick}
-                    onDelete={handleDeleteItem}
-                  />
-                )
-              }
+            {items.map((item, index) => {
+              const showUp = index > 0
+              const showDown = index < items.length - 1
+
+              const itemElement = item.item_type === 'rest' ? (
+                <RestItem item={item} onDelete={handleDeleteItem} />
+              ) : (
+                <ExerciseItem
+                  re={item}
+                  onEdit={handleEditClick}
+                  onDelete={handleDeleteItem}
+                />
+              )
+
+              return (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }} className="animate-in">
+                  {/* Controles de reordenamiento ▲ y ▼ */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      disabled={!showUp}
+                      onClick={() => handleMoveItem(index, 'up')}
+                      style={{
+                        background: 'none', border: 'none',
+                        color: showUp ? 'var(--accent)' : 'var(--text-muted)',
+                        cursor: showUp ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.8rem',
+                        opacity: showUp ? 1 : 0.2, transition: 'all 0.15s'
+                      }}
+                      title="Mover arriba"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!showDown}
+                      onClick={() => handleMoveItem(index, 'down')}
+                      style={{
+                        background: 'none', border: 'none',
+                        color: showDown ? 'var(--accent)' : 'var(--text-muted)',
+                        cursor: showDown ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.8rem',
+                        opacity: showDown ? 1 : 0.2, transition: 'all 0.15s'
+                      }}
+                      title="Mover abajo"
+                    >
+                      ▼
+                    </button>
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {itemElement}
+                  </div>
+                </div>
+              )
             })}
           </div>
         )}

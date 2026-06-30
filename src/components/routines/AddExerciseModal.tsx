@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/i18n/lang-context'
-import type { Exercise, RoutineItemWithExercise, RoutineExerciseSet } from '@/lib/types/database'
+import type { Exercise, RoutineItemWithExercise } from '@/lib/types/database'
 
 interface Props {
   routineId: string
@@ -18,6 +18,26 @@ interface SetInput {
   weight: string
 }
 
+const TYPE_COLORS: Record<string, string> = {
+  compuesto: 'tag-accent',
+  aislamiento: 'tag-accent',
+  fuerza: 'tag-accent',
+  calentamiento: 'tag-warmup',
+  movilidad: 'tag-mobility',
+  cardio: 'tag-cardio',
+  otro: 'tag-muted',
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  compuesto: 'Fuerza',
+  aislamiento: 'Fuerza',
+  fuerza: 'Fuerza',
+  calentamiento: 'Calentamiento',
+  movilidad: 'Movilidad',
+  cardio: 'Cardio',
+  otro: 'Otro',
+}
+
 export default function AddExerciseModal({ routineId, currentCount, editingItem, onClose, onAdded }: Props) {
   const { t } = useLang()
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -27,6 +47,7 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
   const [notes, setNotes] = useState(editingItem?.notes ?? '')
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState<'select' | 'config'>(editingItem ? 'config' : 'select')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'fuerza' | 'calentamiento' | 'movilidad' | 'cardio'>('all')
 
   // Estado para la configuración de cada serie
   const [setsConfig, setSetsConfig] = useState<SetInput[]>([])
@@ -50,7 +71,7 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
   }, [editingItem])
 
   useEffect(() => {
-    if (editingItem) return // No cargar biblioteca si estamos editando
+    if (editingItem) return
     async function load() {
       const supabase = createClient()
       const { data } = await supabase.from('exercises').select('*').order('name')
@@ -59,10 +80,38 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
     load()
   }, [editingItem])
 
-  const filtered = exercises.filter((e) =>
-    e.name.toLowerCase().includes(search.toLowerCase()) ||
-    e.primary_muscle.toLowerCase().includes(search.toLowerCase())
-  )
+  // Helper para normalizar caracteres (eliminar acentos y minúsculas)
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+  }
+
+  // Filtrado de ejercicios aplicando normalización de búsqueda
+  const filtered = exercises.filter((e) => {
+    // 1. Filtro por buscador (sin importar tildes)
+    const term = normalizeText(search)
+    const nameMatch = normalizeText(e.name).includes(term)
+    const muscleMatch = normalizeText(e.primary_muscle).includes(term)
+    const equipmentMatch = e.equipment ? normalizeText(e.equipment).includes(term) : false
+    const matchSearch = nameMatch || muscleMatch || equipmentMatch
+
+    // 2. Filtro por tipo de ejercicio
+    let matchType = true
+    if (typeFilter === 'fuerza') {
+      matchType = e.type === 'fuerza' || e.type === 'compuesto' || e.type === 'aislamiento'
+    } else if (typeFilter === 'calentamiento') {
+      // Calentamiento es inclusivo de movilidad para encontrarlo fácil
+      matchType = e.type === 'calentamiento' || e.type === 'movilidad'
+    } else if (typeFilter === 'movilidad') {
+      matchType = e.type === 'movilidad'
+    } else if (typeFilter === 'cardio') {
+      matchType = e.type === 'cardio'
+    }
+
+    return matchSearch && matchType
+  })
 
   // Ajusta dinámicamente la lista de series
   const handleSetsCountChange = (countStr: string) => {
@@ -72,7 +121,6 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
     setSetsConfig((prev) => {
       const next = [...prev]
       if (count > next.length) {
-        // Rellenar las nuevas series tomando como plantilla la última serie configurada
         const last = next[next.length - 1] || { reps: '10', weight: '' }
         while (next.length < count) {
           next.push({ ...last })
@@ -108,14 +156,12 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
         item_type: 'exercise' as const,
         is_warmup: isWarmup,
         notes: notes.trim() || null,
-        // Limpiamos los campos globales redundantes
         target_sets: setsConfig.length,
         target_reps: setsConfig[0] ? parseInt(setsConfig[0].reps) : null,
         target_weight: setsConfig[0] ? parseFloat(setsConfig[0].weight) : null,
       }
 
       if (editingItem) {
-        // Modo Edición: Actualizar Routine Item
         const { data, error } = await supabase
           .from('routine_items')
           .update(payload)
@@ -126,7 +172,6 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
         if (error) throw error
         resultItem = data
       } else {
-        // Modo Creación: Insertar nuevo Routine Item
         const { data, error } = await supabase
           .from('routine_items')
           .insert({
@@ -142,13 +187,11 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
       }
 
       if (itemId) {
-        // Borrar series existentes de este item para reconstruir
         await supabase
           .from('routine_exercise_sets')
           .delete()
           .eq('routine_item_id', itemId)
 
-        // Insertar las nuevas series individuales
         const setsToInsert = setsConfig.map((s, idx) => ({
           user_id: user.id,
           routine_item_id: itemId!,
@@ -190,42 +233,79 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
 
             <input
               className="form-input"
-              placeholder="Buscar ejercicio..."
+              placeholder="Buscar por nombre, músculo (sin tildes)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 12 }}
             />
 
-            <div style={{ maxHeight: '50vh', overflowY: 'auto' }}>
+            {/* Categorías de filtro principal en el modal */}
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8, marginBottom: 16 }}>
+              {[
+                { key: 'all', label: 'Todos' },
+                { key: 'fuerza', label: '💪 Fuerza' },
+                { key: 'calentamiento', label: '🔥 Calentamiento (+Movilidad)' },
+                { key: 'movilidad', label: '🧘 Solo Movilidad' },
+                { key: 'cardio', label: '🏃 Cardio' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setTypeFilter(key as any)}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: 'var(--radius-full)',
+                    border: `1px solid ${typeFilter === key ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                    background: typeFilter === key ? 'var(--accent-glow)' : 'transparent',
+                    color: typeFilter === key ? 'var(--accent)' : 'var(--text-muted)',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ maxHeight: '42vh', overflowY: 'auto' }}>
               {filtered.length === 0 && (
                 <div className="empty-state" style={{ padding: '24px 0' }}>
                   <div className="empty-state-text">No hay ejercicios. ¡Creá uno primero!</div>
                 </div>
               )}
-              {filtered.map((ex) => (
-                <div
-                  key={ex.id}
-                  className={`card card-clickable`}
-                  onClick={() => {
-                    setSelected(ex)
-                    setIsWarmup(ex.type === 'calentamiento')
-                    setStep('config')
-                  }}
-                  style={{
-                    marginBottom: 8,
-                    border: selected?.id === ex.id ? '1px solid var(--accent)' : undefined,
-                  }}
-                >
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{ex.name}</div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <span className="tag tag-muted">{ex.primary_muscle}</span>
-                    <span className={`tag ${ex.type === 'calentamiento' ? 'tag-warmup' : 'tag-accent'}`}>
-                      {ex.type}
-                    </span>
+              {filtered.map((ex) => {
+                const isCore = ex.primary_muscle === 'Abdomen' || ex.primary_muscle === 'Core' || ex.primary_muscle === 'Oblicuos'
+                const tagColorClass = isCore ? 'tag-core' : (TYPE_COLORS[ex.type] || 'tag-muted')
+                const tagLabel = isCore ? 'Core' : TYPE_LABELS[ex.type] || ex.type
+
+                return (
+                  <div
+                    key={ex.id}
+                    className={`card card-clickable`}
+                    onClick={() => {
+                      setSelected(ex)
+                      setIsWarmup(ex.type === 'calentamiento')
+                      setStep('config')
+                    }}
+                    style={{
+                      marginBottom: 8,
+                      border: selected?.id === ex.id ? '1px solid var(--accent)' : undefined,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: 4 }}>{ex.name}</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <span className="tag tag-muted">{ex.primary_muscle}</span>
+                      <span className={`tag ${tagColorClass}`}>
+                        {tagLabel}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </>
         ) : (
@@ -254,7 +334,6 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
               </label>
             </div>
 
-            {/* Selector de cantidad de series */}
             <div className="form-group" style={{ marginBottom: 16 }}>
               <label className="form-label" htmlFor="sets-count-selector">Cantidad de series</label>
               <input
@@ -269,12 +348,11 @@ export default function AddExerciseModal({ routineId, currentCount, editingItem,
               />
             </div>
 
-            {/* Listado dinámico de series individuales */}
             {setsConfig.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <label className="form-label">Objetivos por serie</label>
                 <div style={{
-                  maxHeight: '35vh',
+                  maxHeight: '32vh',
                   overflowY: 'auto',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-md)',

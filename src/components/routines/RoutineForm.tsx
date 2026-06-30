@@ -12,7 +12,7 @@ const MUSCLE_GROUPS = ['Pecho', 'Espalda', 'Piernas', 'Hombros', 'Brazos', 'Core
 interface RoutineFormValues {
   name: string
   description: string
-  day: string
+  days: string[]
   main_muscle_group: string
 }
 
@@ -28,14 +28,22 @@ export default function RoutineForm({ initial, routineId, mode }: RoutineFormPro
   const [form, setForm] = useState<RoutineFormValues>({
     name: initial?.name ?? '',
     description: initial?.description ?? '',
-    day: initial?.day ?? '',
+    days: initial?.days ?? [],
     main_muscle_group: initial?.main_muscle_group ?? '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  function update(field: keyof RoutineFormValues, value: string) {
+  function update<K extends keyof RoutineFormValues>(field: K, value: RoutineFormValues[K]) {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const toggleDay = (day: string) => {
+    const current = form.days
+    const next = current.includes(day)
+      ? current.filter((d) => d !== day)
+      : [...current, day]
+    update('days', next)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -47,25 +55,22 @@ export default function RoutineForm({ initial, routineId, mode }: RoutineFormPro
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
+    const payload = {
+      user_id: user.id,
+      name: form.name,
+      description: form.description || null,
+      days: form.days.length > 0 ? form.days : null,
+      main_muscle_group: form.main_muscle_group || null,
+    }
+
     if (mode === 'create') {
-      const { error: dbError } = await supabase.from('routines').insert({
-        user_id: user.id,
-        name: form.name,
-        description: form.description || null,
-        day: form.day || null,
-        main_muscle_group: form.main_muscle_group || null,
-      })
+      const { error: dbError } = await supabase.from('routines').insert(payload)
       if (dbError) { setError(dbError.message); setLoading(false); return }
       router.push('/dashboard')
     } else {
       const { error: dbError } = await supabase
         .from('routines')
-        .update({
-          name: form.name,
-          description: form.description || null,
-          day: form.day || null,
-          main_muscle_group: form.main_muscle_group || null,
-        })
+        .update(payload)
         .eq('id', routineId!)
       if (dbError) { setError(dbError.message); setLoading(false); return }
       router.push(`/routines/${routineId}`)
@@ -106,35 +111,51 @@ export default function RoutineForm({ initial, routineId, mode }: RoutineFormPro
             value={form.description}
             onChange={(e) => update('description', e.target.value)}
             placeholder="Descripción breve de la rutina..."
+            style={{ minHeight: 60 }}
           />
         </div>
 
-        <div className="form-row">
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="routine-day">{t('day')}</label>
-            <select
-              id="routine-day"
-              className="form-select"
-              value={form.day}
-              onChange={(e) => update('day', e.target.value)}
-            >
-              <option value="">—</option>
-              {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
+        {/* Selector de múltiples días interactivo */}
+        <div className="form-group">
+          <label className="form-label">Días de la semana</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+            {DAYS.map((d) => {
+              const active = form.days.includes(d)
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => toggleDay(d)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    border: `1px solid ${active ? 'var(--accent)' : 'var(--border-subtle)'}`,
+                    background: active ? 'var(--accent-glow)' : 'transparent',
+                    color: active ? 'var(--accent)' : 'var(--text-muted)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {d}
+                </button>
+              )
+            })}
           </div>
+        </div>
 
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="routine-muscle">{t('muscleGroup')}</label>
-            <select
-              id="routine-muscle"
-              className="form-select"
-              value={form.main_muscle_group}
-              onChange={(e) => update('main_muscle_group', e.target.value)}
-            >
-              <option value="">—</option>
-              {MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          </div>
+        <div className="form-group">
+          <label className="form-label" htmlFor="routine-muscle">{t('muscleGroup')}</label>
+          <select
+            id="routine-muscle"
+            className="form-select"
+            value={form.main_muscle_group}
+            onChange={(e) => update('main_muscle_group', e.target.value)}
+          >
+            <option value="">—</option>
+            {MUSCLE_GROUPS.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
         </div>
 
         <div style={{ marginTop: 28, display: 'flex', gap: 10 }}>

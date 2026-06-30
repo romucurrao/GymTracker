@@ -42,8 +42,10 @@ function RoutineCard({ routine }: { routine: Routine }) {
             </div>
           )}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {routine.day && (
-              <span className="tag tag-muted">{routine.day}</span>
+            {routine.days && routine.days.length > 0 && (
+              <span className="tag tag-muted">
+                {routine.days.map((d) => d.slice(0, 3)).join(', ')}
+              </span>
             )}
             {routine.main_muscle_group && (
               <span className="tag tag-accent">{routine.main_muscle_group}</span>

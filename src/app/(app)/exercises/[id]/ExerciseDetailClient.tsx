@@ -36,10 +36,14 @@ const TYPE_LABELS: Record<string, string> = {
   otro: 'Otro',
 }
 
-const LEVEL_ICON: Record<string, string> = {
-  principiante: '🟢',
-  intermedio: '🟡',
-  avanzado: '🔴',
+const TYPE_COLORS: Record<string, string> = {
+  compuesto: 'tag-accent',
+  aislamiento: 'tag-accent',
+  fuerza: 'tag-accent',
+  calentamiento: 'tag-warmup',
+  movilidad: 'tag-mobility',
+  cardio: 'tag-cardio',
+  otro: 'tag-muted',
 }
 
 export default function ExerciseDetailClient({ exercise, sets }: Props) {
@@ -106,16 +110,18 @@ export default function ExerciseDetailClient({ exercise, sets }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <span className="tag tag-muted">{exercise.primary_muscle}</span>
-            <span className={`tag ${exercise.type === 'calentamiento' ? 'tag-warmup' : exercise.type === 'movilidad' ? 'tag-muted' : 'tag-accent'}`}>
-              {TYPE_LABELS[exercise.type]}
-            </span>
+            {(() => {
+              const isCore = exercise.primary_muscle === 'Abdomen' || exercise.primary_muscle === 'Core' || exercise.primary_muscle === 'Oblicuos'
+              const colorClass = isCore ? 'tag-core' : (TYPE_COLORS[exercise.type] || 'tag-muted')
+              const label = isCore ? 'Core' : TYPE_LABELS[exercise.type] || exercise.type
+              return (
+                <span className={`tag ${colorClass}`}>
+                  {label}
+                </span>
+              )
+            })()}
             {exercise.equipment && (
               <span className="tag tag-muted">🏋 {exercise.equipment}</span>
-            )}
-            {exercise.level && (
-              <span className="tag tag-muted">
-                {LEVEL_ICON[exercise.level]} {exercise.level}
-              </span>
             )}
           </div>
         </div>

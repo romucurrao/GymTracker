@@ -11,8 +11,8 @@ const TYPE_COLORS: Record<string, string> = {
   aislamiento: 'tag-accent',
   fuerza: 'tag-accent',
   calentamiento: 'tag-warmup',
-  movilidad: 'tag-muted',
-  cardio: 'tag-muted',
+  movilidad: 'tag-mobility',
+  cardio: 'tag-cardio',
   otro: 'tag-muted',
 }
 
@@ -24,12 +24,6 @@ const TYPE_LABELS: Record<string, string> = {
   movilidad: 'Movilidad',
   cardio: 'Cardio',
   otro: 'Otro',
-}
-
-const LEVEL_ICON: Record<string, string> = {
-  principiante: '🟢',
-  intermedio: '🟡',
-  avanzado: '🔴',
 }
 
 const MUSCLE_GROUPS = [
@@ -60,11 +54,20 @@ export default function ExercisesClient({ exercises }: { exercises: Exercise[] }
   const [muscleFilter, setMuscleFilter] = useState<string>('Todos')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'global' | 'mine'>('all')
 
+  // Helper para normalizar caracteres (eliminar acentos y minúsculas)
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+  }
+
   const filtered = exercises.filter((e) => {
+    const term = normalizeText(search)
     const matchSearch =
-      e.name.toLowerCase().includes(search.toLowerCase()) ||
-      e.primary_muscle.toLowerCase().includes(search.toLowerCase()) ||
-      (e.equipment ?? '').toLowerCase().includes(search.toLowerCase())
+      normalizeText(e.name).includes(term) ||
+      normalizeText(e.primary_muscle).includes(term) ||
+      (e.equipment ? normalizeText(e.equipment).includes(term) : false)
 
     const matchType = typeFilter === 'all' || e.type === typeFilter
     const matchMuscle = muscleFilter === 'Todos' || e.primary_muscle === muscleFilter
@@ -112,7 +115,7 @@ export default function ExercisesClient({ exercises }: { exercises: Exercise[] }
       {/* Búsqueda */}
       <input
         className="form-input"
-        placeholder="Buscar por nombre, músculo o equipo..."
+        placeholder="Buscar por nombre, músculo o equipo (sin tildes)..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         style={{ marginBottom: 12 }}
@@ -221,66 +224,67 @@ export default function ExercisesClient({ exercises }: { exercises: Exercise[] }
         </div>
       ) : (
         <div className="animate-in">
-          {filtered.map((exercise) => (
-            <Link
-              key={exercise.id}
-              href={`/exercises/${exercise.id}`}
-              className="card card-clickable"
-              style={{
-                display: 'block',
-                marginBottom: 8,
-                borderColor: exercise.is_global ? 'var(--border)' : 'var(--accent-border)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }} className="truncate">
-                      {exercise.name}
-                    </span>
-                    {exercise.is_global ? (
-                      <span style={{
-                        fontSize: '0.65rem', fontWeight: 600,
-                        color: '#94a3b8', background: 'rgba(148,163,184,0.1)',
-                        border: '1px solid rgba(148,163,184,0.2)',
-                        borderRadius: 4, padding: '1px 5px', flexShrink: 0,
-                      }}>
-                        BIBLIOTECA
+          {filtered.map((exercise) => {
+            const isCore = exercise.primary_muscle === 'Abdomen' || exercise.primary_muscle === 'Core' || exercise.primary_muscle === 'Oblicuos'
+            const tagColorClass = isCore ? 'tag-core' : (TYPE_COLORS[exercise.type] || 'tag-muted')
+            const tagLabel = isCore ? 'Core' : TYPE_LABELS[exercise.type] || exercise.type
+
+            return (
+              <Link
+                key={exercise.id}
+                href={`/exercises/${exercise.id}`}
+                className="card card-clickable"
+                style={{
+                  display: 'block',
+                  marginBottom: 8,
+                  borderColor: exercise.is_global ? 'var(--border)' : 'var(--accent-border)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem' }} className="truncate">
+                        {exercise.name}
                       </span>
-                    ) : (
-                      <span style={{
-                        fontSize: '0.65rem', fontWeight: 600,
-                        color: 'var(--accent)', background: 'var(--accent-glow)',
-                        border: '1px solid var(--accent-border)',
-                        borderRadius: 4, padding: '1px 5px', flexShrink: 0,
-                      }}>
-                        MÍO
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    <span className="tag tag-muted" style={{ fontSize: '0.7rem' }}>
-                      {exercise.primary_muscle}
-                    </span>
-                    <span className={`tag ${TYPE_COLORS[exercise.type] || 'tag-muted'}`} style={{ fontSize: '0.7rem' }}>
-                      {TYPE_LABELS[exercise.type]}
-                    </span>
-                    {exercise.equipment && (
+                      {exercise.is_global ? (
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 600,
+                          color: '#94a3b8', background: 'rgba(148,163,184,0.1)',
+                          border: '1px solid rgba(148,163,184,0.2)',
+                          borderRadius: 4, padding: '1px 5px', flexShrink: 0,
+                        }}>
+                          BIBLIOTECA
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: '0.65rem', fontWeight: 600,
+                          color: 'var(--accent)', background: 'var(--accent-glow)',
+                          border: '1px solid var(--accent-border)',
+                          borderRadius: 4, padding: '1px 5px', flexShrink: 0,
+                        }}>
+                          MÍO
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                       <span className="tag tag-muted" style={{ fontSize: '0.7rem' }}>
-                        🏋 {exercise.equipment}
+                        {exercise.primary_muscle}
                       </span>
-                    )}
-                    {exercise.level && (
-                      <span className="tag tag-muted" style={{ fontSize: '0.7rem' }}>
-                        {LEVEL_ICON[exercise.level]} {exercise.level}
+                      <span className={`tag ${tagColorClass}`} style={{ fontSize: '0.7rem' }}>
+                        {tagLabel}
                       </span>
-                    )}
+                      {exercise.equipment && (
+                        <span className="tag tag-muted" style={{ fontSize: '0.7rem' }}>
+                          🏋 {exercise.equipment}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '1.1rem', alignSelf: 'center', flexShrink: 0 }}>›</div>
                 </div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '1.1rem', alignSelf: 'center', flexShrink: 0 }}>›</div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

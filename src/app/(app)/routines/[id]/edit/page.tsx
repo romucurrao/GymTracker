@@ -26,7 +26,7 @@ export default async function EditRoutinePage({ params }: { params: Promise<{ id
       initial={{
         name: routine.name,
         description: routine.description ?? '',
-        day: routine.day ?? '',
+        days: routine.days ?? [],
         main_muscle_group: routine.main_muscle_group ?? '',
       }}
     />

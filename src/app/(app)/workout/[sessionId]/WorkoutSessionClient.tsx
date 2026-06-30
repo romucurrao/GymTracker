@@ -540,20 +540,41 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
                       }])
                     }, 0)
                   }}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    border: `1px solid ${item.is_warmup ? 'var(--warmup-border)' : 'var(--accent-border)'}`,
-                    background: item.is_warmup ? 'var(--warmup-dim)' : 'var(--accent-glow)',
-                    color: item.is_warmup ? 'var(--warmup)' : 'var(--accent)',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}
+                  style={(() => {
+                    const isCore = ex.primary_muscle === 'Abdomen' || ex.primary_muscle === 'Core' || ex.primary_muscle === 'Oblicuos'
+                    const isMobility = ex.type === 'movilidad'
+                    const isCardio = ex.type === 'cardio'
+                    
+                    let prefix = 'accent'
+                    if (isCore) prefix = 'core'
+                    else if (item.is_warmup || ex.type === 'calentamiento') prefix = 'warmup'
+                    else if (isMobility) prefix = 'mobility'
+                    else if (isCardio) prefix = 'cardio'
+
+                    return {
+                      padding: '8px 14px',
+                      borderRadius: 'var(--radius-md)',
+                      border: `1px solid var(--${prefix}-border)`,
+                      background: `var(--${prefix}-dim)`,
+                      color: prefix === 'accent' ? 'var(--accent)' : `var(--${prefix})`,
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                    }
+                  })()}
                 >
-                  {item.is_warmup ? '🔥 ' : ''}{ex.name}
+                  {(() => {
+                    const isCore = ex.primary_muscle === 'Abdomen' || ex.primary_muscle === 'Core' || ex.primary_muscle === 'Oblicuos'
+                    const isMobility = ex.type === 'movilidad'
+                    const isCardio = ex.type === 'cardio'
+                    if (isCore) return '🎯 '
+                    if (item.is_warmup || ex.type === 'calentamiento') return '🔥 '
+                    if (isMobility) return '🧘 '
+                    if (isCardio) return '🏃 '
+                    return '💪 '
+                  })()}{ex.name}
                 </button>
               )
             })}
@@ -601,13 +622,30 @@ export default function WorkoutSessionClient({ session, existingSets, allExercis
           <div className="section-title">Series registradas</div>
           {Object.entries(exerciseGroups).map(([exerciseId, exSets]) => (
             <div key={exerciseId} style={{ marginBottom: 16 }}>
-              <div style={{
-                fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)',
-                marginBottom: 8, display: 'flex', justifyContent: 'space-between',
-              }}>
-                <span>{exSets[0].exercise_name}</span>
-                <span className="text-muted text-xs">{exSets.length} {exSets.length === 1 ? 'serie' : 'series'}</span>
-              </div>
+              {(() => {
+                const ex = allExercises.find(e => e.id === exerciseId)
+                const isCore = ex?.primary_muscle === 'Abdomen' || ex?.primary_muscle === 'Core' || ex?.primary_muscle === 'Oblicuos'
+                const isMobility = ex?.type === 'movilidad'
+                const isCardio = ex?.type === 'cardio'
+                const isWarmupEx = ex?.type === 'calentamiento'
+                
+                let emoji = '💪 '
+                let color = 'var(--text-primary)'
+                if (isCore) { emoji = '🎯 '; color = 'var(--core)'; }
+                else if (isWarmupEx) { emoji = '🔥 '; color = 'var(--warmup)'; }
+                else if (isMobility) { emoji = '🧘 '; color = 'var(--mobility)'; }
+                else if (isCardio) { emoji = '🏃 '; color = 'var(--cardio)'; }
+                
+                return (
+                  <div style={{
+                    fontWeight: 700, fontSize: '0.9rem', color: color,
+                    marginBottom: 8, display: 'flex', justifyContent: 'space-between',
+                  }}>
+                    <span>{emoji}{exSets[0].exercise_name}</span>
+                    <span className="text-muted text-xs">{exSets.length} {exSets.length === 1 ? 'serie' : 'series'}</span>
+                  </div>
+                )
+              })()}
 
               <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)' }}>
                 {/* Header */}

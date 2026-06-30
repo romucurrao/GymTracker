@@ -35,7 +35,7 @@ export interface Database {
           user_id: string
           name: string
           description: string | null
-          day: string | null
+          days: string[] | null
           main_muscle_group: string | null
           created_at: string
         }
@@ -44,7 +44,7 @@ export interface Database {
           user_id: string
           name: string
           description?: string | null
-          day?: string | null
+          days?: string[] | null
           main_muscle_group?: string | null
           created_at?: string
         }
@@ -53,7 +53,7 @@ export interface Database {
           user_id?: string
           name?: string
           description?: string | null
-          day?: string | null
+          days?: string[] | null
           main_muscle_group?: string | null
           created_at?: string
         }
@@ -68,7 +68,6 @@ export interface Database {
           type: ExerciseType
           description: string | null
           equipment: string | null
-          level: ExerciseLevel | null
           is_global: boolean
           created_at: string
         }
@@ -81,7 +80,6 @@ export interface Database {
           type: ExerciseType
           description?: string | null
           equipment?: string | null
-          level?: ExerciseLevel | null
           is_global?: boolean
           created_at?: string
         }
@@ -94,7 +92,6 @@ export interface Database {
           type?: ExerciseType
           description?: string | null
           equipment?: string | null
-          level?: ExerciseLevel | null
           is_global?: boolean
           created_at?: string
         }
@@ -276,9 +273,6 @@ export type ExerciseType =
   | 'movilidad'
   | 'cardio'
   | 'otro'
-
-// ── Nivel ─────────────────────────────────────────────────
-export type ExerciseLevel = 'principiante' | 'intermedio' | 'avanzado'
 
 // ── Equipamiento predefinido ───────────────────────────────
 export const EQUIPMENT_OPTIONS = [

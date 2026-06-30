@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/i18n/lang-context'
-import type { ExerciseType, ExerciseLevel } from '@/lib/types/database'
+import type { ExerciseType } from '@/lib/types/database'
 import { EQUIPMENT_OPTIONS } from '@/lib/types/database'
 import TopBar from '@/components/layout/TopBar'
 
@@ -25,12 +25,6 @@ const TYPE_OPTIONS: { value: ExerciseType; label: string }[] = [
   { value: 'otro', label: 'Otro' },
 ]
 
-const LEVEL_OPTIONS: { value: ExerciseLevel; label: string }[] = [
-  { value: 'principiante', label: '🟢 Principiante' },
-  { value: 'intermedio', label: '🟡 Intermedio' },
-  { value: 'avanzado', label: '🔴 Avanzado' },
-]
-
 interface ExerciseFormValues {
   name: string
   primary_muscle: string
@@ -38,7 +32,6 @@ interface ExerciseFormValues {
   type: ExerciseType
   description: string
   equipment: string
-  level: ExerciseLevel
 }
 
 interface ExerciseFormProps {
@@ -57,7 +50,6 @@ export default function ExerciseForm({ initial, exerciseId, mode }: ExerciseForm
     type: initial?.type ?? 'compuesto',
     description: initial?.description ?? '',
     equipment: initial?.equipment ?? '',
-    level: initial?.level ?? 'principiante',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -84,7 +76,6 @@ export default function ExerciseForm({ initial, exerciseId, mode }: ExerciseForm
       type: form.type,
       description: form.description || null,
       equipment: form.equipment || null,
-      level: form.level || null,
     }
 
     if (mode === 'create') {
@@ -132,36 +123,20 @@ export default function ExerciseForm({ initial, exerciseId, mode }: ExerciseForm
           />
         </div>
 
-        {/* Tipo y Nivel */}
-        <div className="form-row">
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="ex-type">{t('type')} *</label>
-            <select
-              id="ex-type"
-              className="form-select"
-              value={form.type}
-              onChange={(e) => update('type', e.target.value as ExerciseType)}
-              required
-            >
-              {TYPE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label" htmlFor="ex-level">Nivel</label>
-            <select
-              id="ex-level"
-              className="form-select"
-              value={form.level}
-              onChange={(e) => update('level', e.target.value as ExerciseLevel)}
-            >
-              {LEVEL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
+        {/* Tipo */}
+        <div className="form-group">
+          <label className="form-label" htmlFor="ex-type">{t('type')} *</label>
+          <select
+            id="ex-type"
+            className="form-select"
+            value={form.type}
+            onChange={(e) => update('type', e.target.value as ExerciseType)}
+            required
+          >
+            {TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Músculo principal */}

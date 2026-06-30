@@ -31,7 +31,6 @@ export default async function EditExercisePage({ params }: { params: Promise<{ i
         type: exercise.type,
         description: exercise.description ?? '',
         equipment: exercise.equipment ?? '',
-        level: exercise.level ?? 'principiante',
       }}
     />
   )

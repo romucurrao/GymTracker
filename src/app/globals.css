@@ -20,6 +20,18 @@
   --warmup-dim: rgba(251, 146, 60, 0.15);
   --warmup-border: rgba(251, 146, 60, 0.3);
 
+  --mobility: #38bdf8;
+  --mobility-dim: rgba(56, 189, 248, 0.15);
+  --mobility-border: rgba(56, 189, 248, 0.3);
+
+  --cardio: #10b981;
+  --cardio-dim: rgba(16, 185, 129, 0.15);
+  --cardio-border: rgba(16, 185, 129, 0.3);
+
+  --core: #c084fc;
+  --core-dim: rgba(192, 132, 252, 0.15);
+  --core-border: rgba(192, 132, 252, 0.3);
+
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #475569;
@@ -368,6 +380,24 @@ img, svg {
   border: 1px solid rgba(148, 163, 184, 0.15);
 }
 
+.tag-mobility {
+  background: var(--mobility-dim);
+  color: var(--mobility);
+  border: 1px solid var(--mobility-border);
+}
+
+.tag-cardio {
+  background: var(--cardio-dim);
+  color: var(--cardio);
+  border: 1px solid var(--cardio-border);
+}
+
+.tag-core {
+  background: var(--core-dim);
+  color: var(--core);
+  border: 1px solid var(--core-border);
+}
+
 /* ============================
    Empty States
    ============================ */
@@ -630,6 +660,21 @@ img, svg {
 .exercise-item-warmup {
   border-color: var(--warmup-border);
   background: rgba(251, 146, 60, 0.04);
+}
+
+.exercise-item-mobility {
+  border-color: var(--mobility-border);
+  background: rgba(56, 189, 248, 0.04);
+}
+
+.exercise-item-cardio {
+  border-color: var(--cardio-border);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.exercise-item-core {
+  border-color: var(--core-border);
+  background: rgba(192, 132, 252, 0.04);
 }
 
 .exercise-item-info {
